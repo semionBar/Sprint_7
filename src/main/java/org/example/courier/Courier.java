@@ -1,4 +1,4 @@
-package org.example;
+package org.example.courier;
 
 public class Courier {
     private String login;

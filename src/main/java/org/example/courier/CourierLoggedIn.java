@@ -1,4 +1,4 @@
-package org.example;
+package org.example.courier;
 
 public class CourierLoggedIn {
     private String id;
