@@ -1,91 +1,92 @@
 package org.example.order;
 
-import io.qameta.allure.Step;
 import io.restassured.RestAssured;
-import io.restassured.response.Response;
-import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
+import java.util.List;
 
-import static io.restassured.RestAssured.given;
+import static org.apache.http.HttpStatus.SC_CREATED;
 
 @RunWith(Parameterized.class)
 public class OrderTest {
 
-    OrderId order;
-    private final String jsonName;
+    OrderStep orderStep;
 
-    public OrderTest(String jsonName) {
-        this.jsonName = jsonName;
+    private final String firstName;
+    private final String lastName;
+    private final String address;
+    private final int metroStation;
+
+    private final String phone;
+
+    private final int rentTime;
+
+    private final String deliveryDate;
+
+    private final String comment;
+
+    private final List<String> color;
+
+
+    public OrderTest(String firstName, String lastName, String address, int metroStation, String phone, int rentTime, String deliveryDate, String comment, List<String> color) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.address = address;
+        this.metroStation = metroStation;
+        this.phone = phone;
+        this.rentTime = rentTime;
+        this.deliveryDate = deliveryDate;
+        this.comment = comment;
+        this.color = color;
     }
+
 
     @Parameterized.Parameters // добавили аннотацию
     public static Object[][] getSumData() {
         return new Object[][] {
-                {"GreyColorOrderTestData.json"},
-                {"BlackColorOrderTestData.json"},
-                {"BlackAndGreyColorOrderTestData.json"},
-                {"NoColorOrderTestData.json"}
+                {"Naruto", "Uchiha", "Konoha, 142 apt.", 4, "+7 800 355 35 35", 5, "2020-06-06", "Saske, come back to Konoha", List.of("GREY")},
+                {"asdf", "f", "fhjfghjfghj, 142 apt.", 3, "+7 800 355 35 35", 5, "2020-06-06", "a", List.of("GREY", "BLACK")},
+                {"gfds", "fg", "Krtyur", 2, "+7 800 355 35 35", 5, "2020-06-06", "", List.of("BLACK")},
+                {"hgfdh", "sdfg sdfg", "wuyruyruty", 1, "8 800 355 35 35", 5, "2020-06-06", "fff", null}
         };
     }
     @Before
     public void setUp() {
-
         RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
 
-    }
-
-    @Step("Отправить запрос на создание заказа")
-    public Response sendMakeOrderRequest(File json) {
-        return given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(json)
-                .when()
-                .post("/api/v1/orders");
-    }
-
-    @Step("Открыть json с телом запроса")
-    public File openJsonRequestBody() {
-        return new File("src\\test\\resources\\" + jsonName);
-    }
-
-    @Step("Проверить, что код ответа соответствует ожидаемому")
-    public void checkStatusCode(Response response, int statusCode) {
-        response.then().statusCode(statusCode);
-    }
-
-    @Step("Проверить наличие поля в body ответа")
-    public void checkBodyField(Response response,String field) {
-        response.then().body(field, Matchers.notNullValue());
+        orderStep = new OrderStep();
     }
     @Test
     public void makeOrderTest() {
-        File json = openJsonRequestBody();
 
-        Response response = sendMakeOrderRequest(json);
+        Order order = new Order(
+                firstName,
+                lastName,
+                address,
+                metroStation,
+                phone,
+                rentTime,
+                deliveryDate,
+                comment,
+                color
+        );
 
-        checkStatusCode(response, 201);
+        orderStep.sendMakeOrderRequest(order);
 
-        checkBodyField(response,"track");
+        orderStep.checkStatusCode(SC_CREATED);
 
-        order = response.as(OrderId.class);
+        orderStep.checkBodyFieldExists("track");
+
     }
 
     @After
     public void CancelOrder() {
         //Всегда возвращает 404
-        given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(order)
-                .when()
-                .post("/api/v1/orders/cancel");
+        orderStep.cancelOrder();
     }
 
 }

@@ -1,102 +1,65 @@
 package org.example.courier;
 
-import com.google.gson.Gson;
-import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.RestAssured;
-import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.*;
+import static org.apache.http.HttpStatus.SC_CREATED;
+import static org.apache.http.HttpStatus.SC_CONFLICT;
+import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
 
-
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
 
 public class AddCourierTest {
-
-    CourierLoggedIn courierLoggedIn;
     Courier courier;
-    boolean isCourierCreated = false;
 
-    public void resetCourier() throws FileNotFoundException {
-        Gson gson = new Gson();
-        BufferedReader br = new BufferedReader(new FileReader("C:\\Sprint_7\\src\\test\\resources\\AddCourierTestData.json"));
-        courier = gson.fromJson(br, Courier.class);
-    }
+    CourierStep courierStep;
+
     @Before
-    public void setUp() throws FileNotFoundException {
+    public void setUp() {
 
         RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
 
-        resetCourier();
-    }
+        courierStep = new CourierStep();
 
-    @Step("Отправить запрос на создание курьера")
-    public Response sendCreateNewCourierResponse() {
-        return given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(courier)
-                .when()
-                .post("/api/v1/courier");
+        courier = new Courier("bar1234", "1234", "Semen");
     }
-
-    @Step("Изменить данные курьера")
-    public void setNewFieldToCourier(String login, String password, String firstName) {
-        courier.setLogin(login);
-        courier.setPassword(password);
-        courier.setFirstName(firstName);
-    }
-
-    @Step("Проверить, что код ответа равен ожидаемому")
-    public void checkResponseCode(Response response, int code) {
-        response.then().statusCode(code);
-    }
-
-    @Step("Проверить поле из body")
-    public void checkBodyFieldEqualsTrue(Response response, Object object, String field) {
-        response.then().assertThat().body(field,equalTo(object));
-    }
-
     @DisplayName("Добавление нового курьера")
     @Test
     public void addNewCourierTestReturnsOkTrue200() {
-        Response response = sendCreateNewCourierResponse();
 
-        checkResponseCode(response, 201);
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        checkBodyFieldEqualsTrue(response, true, "ok");
+        courierStep.checkResponseCode(SC_CREATED);
 
-        isCourierCreated = response.statusCode() == 201 || response.statusCode() == 409;
+        courierStep.checkBodyFieldEqualsTrue(true, "ok");
 
     }
 
     @Test
     public void addTwoEqualCouriersReturns409() {
 
-        Response response1 = sendCreateNewCourierResponse();
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        Response response2 = sendCreateNewCourierResponse();
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        checkResponseCode(response2,409);
+        courierStep.checkResponseCode(SC_CONFLICT);
 
-        isCourierCreated = response1.statusCode() == 201 || response1.statusCode() == 409;
     }
     @Test
     public void addTwoCouriersWithSameLoginReturns409() {
 
-        Response response1 = sendCreateNewCourierResponse();
 
-        setNewFieldToCourier("s3m3n1337", "4321", "Semion");
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        Response response2 = sendCreateNewCourierResponse();
+        courierStep.setNewFieldToCourier(courier, "bar1234", "4321", "Semion");
 
-        checkResponseCode(response2, 409);
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        isCourierCreated = response1.statusCode() == 201 || response1.statusCode() == 409;
+        courierStep.checkResponseCode(SC_CONFLICT);
+
+        courierStep.resetCourier(courier);
 
     }
 
@@ -104,51 +67,28 @@ public class AddCourierTest {
     @Test
     public void addNewCourierNoLoginDataReturns400() {
 
+        courierStep.setNewFieldToCourier(courier, null, "1234", "Semen");
 
-        setNewFieldToCourier(null, "1234", "Semen");
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        Response response = sendCreateNewCourierResponse();
-
-        checkResponseCode(response, 400);
-
-        isCourierCreated = response.statusCode() == 201 || response.statusCode() == 409;
+        courierStep.checkResponseCode(SC_BAD_REQUEST);
 
     }
 
     @Test
     public void addNewCourierNoPasswordDataReturns400() {
-        courier.setPassword(null);
 
-        setNewFieldToCourier("s3m3n1337", null, "Semen");
+        courierStep.setNewFieldToCourier(courier, "bar1234", null, "Semen");
 
-        Response response = sendCreateNewCourierResponse();
+        courierStep.sendCreateNewCourierRequest(courier);
 
-        checkResponseCode(response, 400);
+        courierStep.checkResponseCode(SC_BAD_REQUEST);
 
-        isCourierCreated = response.statusCode() == 201 || response.statusCode() == 409;
     }
 
     @After
-    public void clearUserData() throws FileNotFoundException {
-        resetCourier();
-
-        if (isCourierCreated) {
-            courierLoggedIn = given()
-                    .header("Content-type", "application/json")
-                    .and()
-                    .body(courier)
-                    .when()
-                    .post("/api/v1/courier/login").as(CourierLoggedIn.class);
-
-            if (courierLoggedIn.getId() != null) {
-                Response response = given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(courierLoggedIn)
-                        .when()
-                        .delete("/api/v1/courier/" + courierLoggedIn.getId());
-
-            }
-        }
+    public void deleteCourier() {
+        courierStep.resetCourier(courier);
+        courierStep.deleteUserIfNeeded(courier);
     }
 }

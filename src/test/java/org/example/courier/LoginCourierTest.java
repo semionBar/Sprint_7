@@ -1,170 +1,115 @@
 package org.example.courier;
 
-import com.google.gson.Gson;
-import io.qameta.allure.Step;
 import io.restassured.RestAssured;
-import io.restassured.response.Response;
-import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-
-import static io.restassured.RestAssured.given;
+import static org.apache.http.HttpStatus.SC_OK;
+import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
+import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 
 
 public class LoginCourierTest {
 
     Courier courier;
-    CourierLoggedIn courierLoggedIn;
+    CourierStep courierStep;
 
     @Before
-    public void setUp() throws FileNotFoundException {
+    public void setUp() {
+        courier = new Courier("bar1234", "1234", null);
 
-        resetCourier();
+        courierStep = new CourierStep();
 
         RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
 
-        given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(courier)
-                .when()
-                .post("/api/v1/courier");
-    }
-
-
-    @Step("Отправить запрос логина")
-    public Response sendLoginRequest() {
-        return given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(courier)
-                .when()
-                .post("/api/v1/courier/login");
-    }
-
-    @Step("Проверить, что код ответа соответствует ожидаемому")
-    public void checkStatusCode(Response response, int statusCode) {
-        response.then().statusCode(statusCode);
-    }
-
-    @Step("Проверить, что поле из body не пустое")
-    public void checkBodyField(Response response, String field) {
-        response.then().assertThat().body(field, Matchers.notNullValue());
-    }
-
-    @Step("Изменить данные курьера")
-    public void setNewFieldToCourier(String login, String password, String firstName) {
-        courier.setLogin(login);
-        courier.setPassword(password);
-        courier.setFirstName(firstName);
+        courierStep.sendCreateNewCourierRequest(courier);
     }
 
     @Test
     public void loginUserTest() {
-        Response response = sendLoginRequest();
 
-        checkStatusCode(response, 200);
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkBodyField(response, "id");
+        courierStep.checkResponseCode(SC_OK);
 
-        courierLoggedIn = response.as(CourierLoggedIn.class);
+        courierStep.checkBodyFieldExists("id");
     }
 
     @Test
     public void loginCourierNoLoginDataReturns400() {
 
-        setNewFieldToCourier(null, "1234", null);
+        courierStep.setNewFieldToCourier(courier, null, "1234", null);
 
-        Response response = sendLoginRequest();
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkStatusCode(response, 400);
+        courierStep.checkResponseCode(SC_BAD_REQUEST);
 
-        checkBodyField(response, "message");
+        courierStep.checkBodyFieldExists("message");
+
 
     }
 
     @Test
     public void loginCourierNoPasswordDataReturns400() {
 
-    //Gри отсутствии поля password сервер не отвечает
+    //При отсутствии поля password сервер не отвечает
 
-        setNewFieldToCourier("s3m3n1337", "", null);
+        courierStep.setNewFieldToCourier(courier, "bar1234", "", null);
 
-        Response response = sendLoginRequest();
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkStatusCode(response,400);
+        courierStep.checkResponseCode(SC_BAD_REQUEST);
 
-        checkBodyField(response, "message");
+        courierStep.checkBodyFieldExists("message");
 
     }
 
     @Test
     public void loginCourierWrongPasswordReturns404() {
 
-        setNewFieldToCourier("s3m3n1337", "12345", null);
+        courierStep.setNewFieldToCourier(courier, "bar1234", "12345", null);
 
-        Response response = sendLoginRequest();
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkStatusCode(response,404);
+        courierStep.checkResponseCode(SC_NOT_FOUND);
 
-        checkBodyField(response, "message");
+        courierStep.checkBodyFieldExists("message");
+
     }
 
     @Test
     public void loginCourierWrongLoginReturns404() {
 
-        setNewFieldToCourier("12345", "1234", null);
+        courierStep.setNewFieldToCourier(courier, "12345", "1234", null);
 
-        Response response = sendLoginRequest();
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkStatusCode(response,404);
+        courierStep.checkResponseCode(SC_NOT_FOUND);
 
-        checkBodyField(response, "message");
+        courierStep.checkBodyFieldExists("message");
 
     }
 
     @Test
     public void loginCourierWrongLoginAndPasswordReturns404() {
 
-        setNewFieldToCourier("asdfasdf", "12345", null);
 
-        Response response = sendLoginRequest();
+        courierStep.setNewFieldToCourier(courier, "asdasdf", "12345", null);
 
-        response.then().statusCode(404);
+        courierStep.sendLoginCourierRequest(courier);
 
-        checkBodyField(response, "message");
+        courierStep.checkResponseCode(SC_NOT_FOUND);
+
+        courierStep.checkBodyFieldExists("message");
+
     }
 
     @After
-    public void deleteUser() throws FileNotFoundException {
-        resetCourier();
+    public void deleteUser() {
 
-        if (courierLoggedIn == null) {
-            courierLoggedIn = given()
-                    .header("Content-type", "application/json")
-                    .and()
-                    .body(courier)
-                    .when()
-                    .post("/api/v1/courier/login").as(CourierLoggedIn.class);
-        }
-        Response response = given()
-                .header("Content-type", "application/json")
-                .and()
-                .body(courierLoggedIn)
-                .when()
-                .delete("/api/v1/courier/" + courierLoggedIn.getId());
+        courierStep.resetCourier(courier);
 
-
-    }
-    public void resetCourier() throws FileNotFoundException {
-
-        Gson gson = new Gson();
-        BufferedReader br = new BufferedReader(new FileReader("C:\\Sprint_7\\src\\test\\resources\\LoginCourierTestData.json"));
-        courier = gson.fromJson(br, Courier.class);
+        courierStep.deleteUserIfNeeded(courier);
     }
 }

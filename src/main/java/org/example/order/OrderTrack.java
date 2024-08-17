@@ -1,4 +1,4 @@
-package org.example.courier;
+package org.example.order;
 
 
 import lombok.*;
@@ -8,7 +8,9 @@ import lombok.*;
 @NoArgsConstructor
 @Setter
 @Getter
-public class CourierLoggedIn {
-    private String id;
+public class OrderTrack {
+    private int track;
+
+
 
 }
