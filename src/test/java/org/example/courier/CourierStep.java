@@ -32,10 +32,22 @@ public class CourierStep {
                 .body(courier)
                 .when()
                 .post(createCourierPath);
+
+    }
+
+    @Step("Создать курьера")
+    public void createNewCourier(Courier courier) {
+        sendCreateNewCourierRequest(courier);
+        checkIsCourierCreated();
+    }
+
+    @Step("Проверить был ли создан курьер")
+    public void checkIsCourierCreated() {
         if (response.statusCode() == SC_CREATED || response.statusCode() == SC_CONFLICT) {
             isCourierCreated = true;
         }
     }
+
 
     @Step("Отправить запрос на удаление курьера")
     public void sendDeleteCourierRequest(CourierLoggedIn courierLoggedIn) {
